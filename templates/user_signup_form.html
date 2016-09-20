@@ -1,0 +1,24 @@
+{% extends "container_page.html" %}
+
+{% block content %}
+		<h1>Sign-up for an account!</h1>
+		<form method="post">
+			<label>Username
+				<input type="text" name="username" value="{{username}}">
+			</label>{{error_user}}
+			<br>
+			<label>Password
+				<input type="text" name="password" value="">
+			</label>{{error_pass}}
+			<br>
+			<label>Re-type password
+				<input type="type" name="verify" value="">
+			</label>
+			<br>
+			<label>Email (optional)
+				<input type="type" name="email" value="{{email}}">
+			</label>{{error_email}}
+			<br>
+			<input type="submit">
+		</form>
+{% endblock %}
