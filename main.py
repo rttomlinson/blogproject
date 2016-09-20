@@ -144,7 +144,7 @@ class SignInHandler(Handler):
 class LogoutHandler(Handler): #deletes cookie and redirects user to signup page
 
     def get(self):
-        self.response.headers.add_header('Set-Cookie', 'user-id=""; Path=/')
+        self.response.headers.add_header('Set-Cookie', 'user-id=; Path=/')
         self.redirect("/signup")
 
 
