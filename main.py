@@ -41,6 +41,10 @@ class Accounts(db.Model):
     #add helper function for splitting password property
     def split_password(self):
         return self.password.split("|")
+
+    def get_ID(self):
+        return self.key().id()
+
     user = db.StringProperty(required = True)
     password = db.StringProperty(required = True)
     #email = db.EmailProperty()#Not currently adding email. Can't figure out how to make optional
@@ -78,10 +82,7 @@ class SignUpPage(Handler):
                 #Create new entity for user
                 newuser = Accounts(user = username, password = salt_hash_pw) #Not currently adding email. Can't figure out how to make optional
                 newuser.put() #Put new user into DB
-                ent_id = newuser.key().id() #Get ID of new entity
-                #Set cookie for user
-                pass_hash = string.split(salt_hash_pw,"|")[0]
-                self.response.headers.add_header('Set-Cookie', 'user-id=%s|%s; Path=/' % (ent_id, pass_hash))
+                make_cookie_for_entity(self, newuser)#Set cookie for user
                 self.redirect("/welcome")
         else:
             error_user=""
@@ -128,7 +129,9 @@ class SignInHandler(Handler):
             if username_entity:
                 hash_salt_password = username_entity.split_password()
                 if username_entity.password == make_pw_hash(username, password, hash_salt_password[1]):#Get the hash,salt and check provided username+password+salt against value of Accounts.password (hash,salt)
-                    self.write("Welcome back!") #Need to render custom page Set cookies?
+                    #Call make_cookie_for_entity()
+                    make_cookie_for_entity(self, username_entity)
+                    self.redirect('/welcome')
                 else:
                     self.render("signin_page.html", error = "That's the incorrect password. Please try again")
             else:
@@ -191,4 +194,10 @@ def get_account_ent(account_id):
 def split_cookie(h):
     user_cookie = h.split("|")
     return user_cookie
+
+def make_cookie_for_entity(self, entity):
+    newuser_id = entity.get_ID() #Get ID of new entity
+    pass_hash = entity.password.split("|")[0]
+    cookie_value = str('user-id=%s|%s' % (newuser_id, pass_hash))
+    self.response.headers.add_header('Set-Cookie', '%s; Path=/' % cookie_value)
 
