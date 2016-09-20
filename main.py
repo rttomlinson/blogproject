@@ -153,7 +153,7 @@ app = webapp2.WSGIApplication([
                             ('/signup', SignUpPage),
                             ('/welcome', WelcomeHandler),
                             ('/signin', SignInHandler),
-                            ('/signup', LogoutHandler)
+                            ('/logout', LogoutHandler)
                             ],
                             debug=True)
 
