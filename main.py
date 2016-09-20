@@ -141,11 +141,20 @@ class SignInHandler(Handler):
             else:
                 self.redirect('/signup') #Make error message. Render to page
 
+class LogoutHander(Handler): #deletes cookie and redirects user to signup page
+
+    def get(self):
+        self.response.headers.add_header('Set-Cookie', 'user-id=""; Path=/')
+        self.redirect("/signup")
+
+
 app = webapp2.WSGIApplication([
                             ('/', MainPage),
                             ('/signup', SignUpPage),
                             ('/welcome', WelcomeHandler),
-                            ('/signin', SignInHandler)],
+                            ('/signin', SignInHandler),
+                            ('/signup', LogoutHandler)
+                            ],
                             debug=True)
 
 
@@ -166,7 +175,7 @@ def valid_email(email):
     else:
         return True
 
-def check_user_inuse(username):
+def check_user_inuse(username): #Can this go in Accounts class?
     q = db.GqlQuery("""SELECT * FROM Accounts WHERE user = '%s'""" % username)
     return q.get() #Returns None if no matches are found (Username not in database)
 
@@ -192,9 +201,7 @@ def valid_cookie(account_id, pw_hash): #check if DB ID matches with cookie hash 
     else:
         return False
 
-
-
-def split_cookie(h):
+def split_cookie(h): #Can this go in Handler class?
     user_cookie = h.split("|")
     return user_cookie
 
