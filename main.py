@@ -45,6 +45,10 @@ class Accounts(db.Model):
     def get_ID(self):
         return self.key().id()
 
+    @classmethod
+    def get_account_ent(self, account_id):
+        return self.get_by_id(account_id)
+
     user = db.StringProperty(required = True)
     password = db.StringProperty(required = True)
     #email = db.EmailProperty()#Not currently adding email. Can't figure out how to make optional
@@ -110,7 +114,7 @@ class WelcomeHandler(Handler):
         account_id = int(broken_cookie[0])
         hash_pw = broken_cookie[1]
         if (valid_cookie(account_id, hash_pw)):
-            self.write("Welcome %s" % (get_account_ent(account_id).user))
+            self.write("Welcome %s" % (Accounts.get_account_ent(account_id).user))
         else:
             self.redirect("/signup")
 
@@ -182,14 +186,13 @@ def valid_pw(name, pw, h):
     return (h == check_pass)
    
 def valid_cookie(account_id, pw_hash): #check if DB ID matches with cookie hash password
-    cookie_account = get_account_ent(account_id)
+    cookie_account = Accounts.get_account_ent(account_id)
     if cookie_account:
         return pw_hash == (cookie_account.password).split("|")[0]
     else:
         return False
 
-def get_account_ent(account_id):
-    return Accounts.get_by_id(account_id)
+
 
 def split_cookie(h):
     user_cookie = h.split("|")
