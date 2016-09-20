@@ -141,7 +141,7 @@ class SignInHandler(Handler):
             else:
                 self.redirect('/signup') #Make error message. Render to page
 
-class LogoutHander(Handler): #deletes cookie and redirects user to signup page
+class LogoutHandler(Handler): #deletes cookie and redirects user to signup page
 
     def get(self):
         self.response.headers.add_header('Set-Cookie', 'user-id=""; Path=/')
