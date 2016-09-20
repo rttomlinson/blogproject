@@ -38,6 +38,9 @@ class Handler(webapp2.RequestHandler):
         self.write(self.render_str(template, **kw))
 
 class Accounts(db.Model):
+    #add helper function for splitting password property
+    def split_password(self):
+        return self.password.split("|")
     user = db.StringProperty(required = True)
     password = db.StringProperty(required = True)
     #email = db.EmailProperty()#Not currently adding email. Can't figure out how to make optional
@@ -47,11 +50,9 @@ class MainPage(Handler):
 
 class SignUpPage(Handler):
     def get(self):
-        #items = self.request.get_all("food")
-        self.render("user_signup_form.html")#, items = items)
+        self.render("user_signup_form.html")
 
     def post(self):
-        #Do something
         username = self.request.get("username")
         password = self.request.get("password")
         verify = self.request.get("verify")
@@ -67,7 +68,6 @@ class SignUpPage(Handler):
 
         if is_valid_user and is_valid_pass and is_valid_email:
             if check_user_inuse(username):##Check if username is already in the database
-            #Error = username already taken
                 error_user = "Username already in use"
                 self.render("user_signup_form.html", error_user = error_user)
             else: #Add user to database
@@ -124,10 +124,15 @@ class SignInHandler(Handler):
         is_valid_pass = valid_password(password)
 
         if is_valid_user and is_valid_pass:
-            if check_user_inuse(username):
-                pass#Check the databse to see if matches are found
+            username_entity = check_user_inuse(username)
+            if username_entity:
+                hash_salt_password = username_entity.split_password()
+                if username_entity.password == make_pw_hash(username, password, hash_salt_password[1]):#Get the hash,salt and check provided username+password+salt against value of Accounts.password (hash,salt)
+                    self.write("Welcome back!") #Need to render custom page Set cookies?
+                else:
+                    self.render("signin_page.html", error = "That's the incorrect password. Please try again")
             else:
-                self.write("Username is not registered. Please visit sign-in page") #Make error message. Render to page
+                self.redirect('/signup') #Make error message. Render to page
 
 app = webapp2.WSGIApplication([
                             ('/', MainPage),
@@ -156,7 +161,7 @@ def valid_email(email):
 
 def check_user_inuse(username):
     q = db.GqlQuery("""SELECT * FROM Accounts WHERE user = '%s'""" % username)
-    return q.get(): #User is inuse - Return hashword
+    return q.get() #Returns None if no matches are found (Username not in database)
 
 def create_salt():
     letters = string.ascii_letters
