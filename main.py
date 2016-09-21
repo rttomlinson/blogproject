@@ -190,9 +190,10 @@ class FormPage(Handler):
 class WelcomeHandler(Handler):
     def get(self): #Get cookie from user browser. Lookup information in databse and display name
         if (self.valid_cookie()):
-            self.write("Welcome %s" % (self.get_account_from_cookie().user))
+            welcome_message = "Welcome %s" % (self.get_account_from_cookie().user)
+            self.render("welcome_page.html", welcome_message = welcome_message)
         else:
-            self.redirect("/signup")
+            self.redirect("/signin")
 
 class SignInHandler(Handler):
     def get(self):
@@ -220,7 +221,7 @@ class LogoutHandler(Handler): #deletes cookie and redirects user to signup page
 
     def get(self):
         self.response.headers.add_header('Set-Cookie', 'user-id=; Path=/')
-        self.redirect("/signup")
+        self.redirect("/signin")
 
 
 app = webapp2.WSGIApplication([
