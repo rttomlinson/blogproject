@@ -1,0 +1,17 @@
+{% extends "container_page.html" %}
+
+{% block content %}
+{{error}}
+<form method="post">
+	<label>Subject
+		<input name="subject" type="text" value="{{subject}}">
+	</label>
+
+	<hr>
+
+	<label>Content
+		<textarea name="content">{{content}}</textarea>
+	</label>
+	<input type="submit">
+</form>
+{% endblock %}

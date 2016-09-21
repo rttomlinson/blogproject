@@ -1,17 +1,23 @@
 <!doctype html>
-
 <html>
 	<head>
-		<title>Zozo's Blog</title>
 		<meta charset="utf-8">
 		<meta name="viewport" content="width=device-width, initial-scale=1.0">
-		<link href="css/main.css" type="text/css" rel="stylesheet">
+		<title>Zozo's Blog</title>
+		<link href="css/main.css" rel="stylesheet" type="text/css">
 	</head>
-
 	<body>
-	{% block content %}
-	{% endblock %}
-
+		{% if handler.valid_cookie() %}
+			<a href="/blog"> <!--If wedpage has a valid cookie, send to /blog, otherwise send to /signin-->
+		{% else %}
+			<a href="/">
+		{% endif %}
+			<header class="blog-header">
+				<h1>Welcome to Zozo's Blog</h1>
+			</header>
+		</a>
+		{% block content %}
+		{% endblock %}
 	</body>
 
-<html>
+</html>

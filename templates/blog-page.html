@@ -1,0 +1,22 @@
+{% extends "container_page.html" %}
+
+{% block content %}
+<section>
+	<h1>Recent Posts</h1>
+	{% for post in posts %}
+	<article>
+		<header class="blog-title">{{post.subject}}
+		</header>
+		<pre>{{post.content}}</pre>
+		<footer>
+		</footer>
+	</article>
+	{% endfor %}
+</section>
+<footer>
+	<form action="/newpost">
+		<input type="submit" value="New Post">
+	</form>
+</footer>
+
+{% endblock %}

@@ -35,7 +35,42 @@ class Handler(webapp2.RequestHandler):
         return t.render(**kw)
 
     def render(self, template, **kw):
-        self.write(self.render_str(template, **kw))
+        self.write(self.render_str(template, handler = self, **kw))
+
+    def make_cookie_for_page(self, entity):
+        newuser_id = entity.get_ID() #Get ID of new entity
+        pass_hash = entity.password.split("|")[0]
+        cookie_value = str('user-id=%s|%s' % (newuser_id, pass_hash))
+        self.response.headers.add_header('Set-Cookie', '%s; Path=/' % cookie_value)
+
+    @staticmethod
+    def split_cookie(h): #Can this go in Handler class?
+        user_cookie = h.split("|")
+        return user_cookie
+
+    def valid_cookie(self): #check if DB ID matches with cookie hash password
+        if self.request.cookies.get("user-id"):
+            hash_pw = self.get_hash_from_cookie()        
+            cookie_account = self.get_account_from_cookie() #Add to Handler class?
+            if cookie_account:
+                return hash_pw == (cookie_account.password).split("|")[0]
+            else:
+                return False
+        else:
+            return False
+
+    def get_account_from_cookie(self):
+        userID_cookie = str(self.request.cookies.get("user-id"))
+        broken_cookie = self.split_cookie(userID_cookie)
+        account_id = int(broken_cookie[0])
+        return Accounts.get_account_ent(account_id)
+
+    def get_hash_from_cookie(self):
+        userID_cookie = str(self.request.cookies.get("user-id"))
+        broken_cookie = self.split_cookie(userID_cookie)
+        return broken_cookie[1]
+
+
 
 class Accounts(db.Model):
     #add helper function for splitting password property
@@ -46,15 +81,34 @@ class Accounts(db.Model):
         return self.key().id()
 
     @classmethod
-    def get_account_ent(self, account_id):
-        return self.get_by_id(account_id)
+    def get_account_ent(cls, account_id):
+        return cls.get_by_id(account_id)
+
+    @staticmethod
+    def check_user_inuse(username):
+        q = db.GqlQuery("""SELECT * FROM Accounts WHERE user = '%s'""" % username)
+        return q.get() #Returns None if no matches are found (Username not in database)
 
     user = db.StringProperty(required = True)
     password = db.StringProperty(required = True)
-    #email = db.EmailProperty()#Not currently adding email. Can't figure out how to make optional
+    #email = db.StringProperty()#Not currently adding email. Can't figure out how to make optional
+class Blog(db.Model):
+    subject = db.StringProperty(required = True)
+    content = db.TextProperty(required = True)
+    created = db.DateTimeProperty(auto_now_add = True)
+
+class BlogPage(Handler):
+
+    def get(self, **kw):
+        if self.valid_cookie():
+            posts = db.GqlQuery("SELECT * FROM Blog ORDER BY created DESC")
+            self.render("blog-page.html", posts=posts, **kw)
+        else:
+            self.redirect('signin')
+
 class MainPage(Handler):
     def get(self):
-        self.redirect('/signup')
+        self.redirect('/signin')
 
 class SignUpPage(Handler):
     def get(self):
@@ -75,7 +129,7 @@ class SignUpPage(Handler):
         is_valid_email = valid_email(email)
 
         if is_valid_user and is_valid_pass and is_valid_email:
-            if check_user_inuse(username):##Check if username is already in the database
+            if Accounts.check_user_inuse(username):##Check if username is already in the database
                 error_user = "Username already in use"
                 self.render("user_signup_form.html", error_user = error_user)
             else: #Add user to database
@@ -86,7 +140,7 @@ class SignUpPage(Handler):
                 #Create new entity for user
                 newuser = Accounts(user = username, password = salt_hash_pw) #Not currently adding email. Can't figure out how to make optional
                 newuser.put() #Put new user into DB
-                make_cookie_for_entity(self, newuser)#Set cookie for user
+                self.make_cookie_for_page(newuser)#Set cookie for user
                 self.redirect("/welcome")
         else:
             error_user=""
@@ -102,19 +156,41 @@ class SignUpPage(Handler):
                                                 error_pass = error_pass,
                                                 error_email = error_email,
                                                 username = username,
-                                                email = email)#, text = text)
-        #Need to write redirect if success
-        #Need to write helpers to check if data is valid
+                                                email = email)
 
+
+class NewPost(Handler):
+
+    def get(self): #Need to fix. Add helper method strictly for rendering new form html
+        self.render("submit-form.html")
+
+    def post(self):
+        subject = self.request.get("subject")
+        content = self.request.get("content") #May encounter error by interacting with Jinja content variable for form inheritenace. Be aware. Consider switching variable names. But it is likely that the block code gets run and the content within the block is plain/text and the function for moving the content block completes before the remaining code is parsed, thereby lmiting the scope of the content variable.
+        
+        
+        if subject and content:
+            newpost = Blog(subject = subject, content = content) #Should ensure that Int is generated for ID
+            newpost.put()
+            post_num = str(newpost.key().id())
+            self.redirect("/" + post_num) # Need to have newpost redirect to Unique ID page for post
+        else:
+            error = "we need both subject and content"
+            self.render("submit-form.html", error = error, subject = subject, content = content)
+
+class FormPage(Handler):
+    def get(self, post_id):
+     #Should check to verify if Int
+        post = Blog.get_by_id(int(post_id))
+        if post:
+            self.render("new-post.html", post = post)
+        else:
+            self.write("That is not a post")
 
 class WelcomeHandler(Handler):
     def get(self): #Get cookie from user browser. Lookup information in databse and display name
-        userID_cookie = str(self.request.cookies.get("user-id"))
-        broken_cookie = split_cookie(userID_cookie)
-        account_id = int(broken_cookie[0])
-        hash_pw = broken_cookie[1]
-        if (valid_cookie(account_id, hash_pw)):
-            self.write("Welcome %s" % (Accounts.get_account_ent(account_id).user))
+        if (self.valid_cookie()):
+            self.write("Welcome %s" % (self.get_account_from_cookie().user))
         else:
             self.redirect("/signup")
 
@@ -129,12 +205,11 @@ class SignInHandler(Handler):
         is_valid_pass = valid_password(password)
 
         if is_valid_user and is_valid_pass:
-            username_entity = check_user_inuse(username)
+            username_entity = Accounts.check_user_inuse(username)
             if username_entity:
                 hash_salt_password = username_entity.split_password()
                 if username_entity.password == make_pw_hash(username, password, hash_salt_password[1]):#Get the hash,salt and check provided username+password+salt against value of Accounts.password (hash,salt)
-                    #Call make_cookie_for_entity()
-                    make_cookie_for_entity(self, username_entity)
+                    self.make_cookie_for_page(username_entity) #Make cookie
                     self.redirect('/welcome')
                 else:
                     self.render("signin_page.html", error = "That's the incorrect password. Please try again")
@@ -153,7 +228,10 @@ app = webapp2.WSGIApplication([
                             ('/signup', SignUpPage),
                             ('/welcome', WelcomeHandler),
                             ('/signin', SignInHandler),
-                            ('/logout', LogoutHandler)
+                            ('/logout', LogoutHandler),
+                            ('/blog', BlogPage),
+                            ('/newpost', NewPost),
+                            ('/([0-9]+)', FormPage)
                             ],
                             debug=True)
 
@@ -163,7 +241,7 @@ PASS_RE = re.compile(r"^.{3,20}$")
 EMAIL_RE = re.compile(r"^[\S]+@[\S]+.[\S]+$")
 
 
-def valid_username(username):
+def valid_username(username): #Maybe all these go in the Handler class. Or how a LoginsHandler class
     return USER_RE.match(username)
 
 def valid_password(password):
@@ -175,11 +253,7 @@ def valid_email(email):
     else:
         return True
 
-def check_user_inuse(username): #Can this go in Accounts class?
-    q = db.GqlQuery("""SELECT * FROM Accounts WHERE user = '%s'""" % username)
-    return q.get() #Returns None if no matches are found (Username not in database)
-
-def create_salt():
+def create_salt(): #Put in Accounts class or some salting/hashing class
     letters = string.ascii_letters
     return ''.join(random.choice(letters) for x in xrange(5))
 
@@ -194,20 +268,6 @@ def valid_pw(name, pw, h):
     check_pass = make_pw_hash(name, pw, pass_salt)
     return (h == check_pass)
    
-def valid_cookie(account_id, pw_hash): #check if DB ID matches with cookie hash password
-    cookie_account = Accounts.get_account_ent(account_id)
-    if cookie_account:
-        return pw_hash == (cookie_account.password).split("|")[0]
-    else:
-        return False
 
-def split_cookie(h): #Can this go in Handler class?
-    user_cookie = h.split("|")
-    return user_cookie
 
-def make_cookie_for_entity(self, entity):
-    newuser_id = entity.get_ID() #Get ID of new entity
-    pass_hash = entity.password.split("|")[0]
-    cookie_value = str('user-id=%s|%s' % (newuser_id, pass_hash))
-    self.response.headers.add_header('Set-Cookie', '%s; Path=/' % cookie_value)
 
