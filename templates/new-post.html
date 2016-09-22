@@ -5,6 +5,10 @@
 	<h1>Your Post</h1>
 	<article>
 		<header class="blog-title">{{post.subject}}
+			<form method="post" action="/delete">
+				<input type="hidden" name="delete" value="{{post.get_ID()}}">
+				<input type="submit" value="Delete Post">
+			</form>
 		</header>
 		<pre>{{post.content}}</pre>
 		<footer>

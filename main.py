@@ -71,18 +71,19 @@ class Handler(webapp2.RequestHandler):
         return broken_cookie[1]
 
 
+class Databases(db.Model):
 
-class Accounts(db.Model):
-    #add helper function for splitting password property
-    def split_password(self):
-        return self.password.split("|")
-
-    def get_ID(self):
+    def get_ID(self): #Make into super class for Accounts and Blog
         return self.key().id()
 
     @classmethod
     def get_account_ent(cls, account_id):
         return cls.get_by_id(account_id)
+
+class Accounts(Databases):
+    #add helper function for splitting password property
+    def split_password(self):
+        return self.password.split("|")
 
     @staticmethod
     def check_user_inuse(username):
@@ -92,7 +93,8 @@ class Accounts(db.Model):
     user = db.StringProperty(required = True)
     password = db.StringProperty(required = True)
     #email = db.StringProperty()#Not currently adding email. Can't figure out how to make optional
-class Blog(db.Model):
+class Blog(Databases):
+
     subject = db.StringProperty(required = True)
     content = db.TextProperty(required = True)
     created = db.DateTimeProperty(auto_now_add = True)
@@ -223,6 +225,16 @@ class LogoutHandler(Handler): #deletes cookie and redirects user to signup page
         self.response.headers.add_header('Set-Cookie', 'user-id=; Path=/')
         self.redirect("/signin")
 
+class DeleteHandler(Handler):
+
+    def get(self):
+        self.write("Go back to blog")
+
+    def post(self): #Get ID number of post from form and user ID or name
+        deleteID = int(self.request.get("delete"))
+        account_entity = Blog.get_account_ent(deleteID)
+        account_entity.delete()
+        self.redirect("/blog")
 
 app = webapp2.WSGIApplication([
                             ('/', MainPage),
@@ -232,7 +244,8 @@ app = webapp2.WSGIApplication([
                             ('/logout', LogoutHandler),
                             ('/blog', BlogPage),
                             ('/newpost', NewPost),
-                            ('/([0-9]+)', FormPage)
+                            ('/([0-9]+)', FormPage),
+                            ('/delete', DeleteHandler)
                             ],
                             debug=True)
 
