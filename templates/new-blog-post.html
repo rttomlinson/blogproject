@@ -4,22 +4,22 @@
 <section>
 	<h1>Your Post</h1>
 	<article>
-		<header class="blog-title">{{post.subject}}
+		<header class="blog-title">{{blog.subject}}
 			<form method="post" action="/delete">
-				<input type="hidden" name="delete" value="{{post.get_ID()}}">
+				<input type="hidden" name="delete" value="{{blog.get_ID()}}">
 				<input type="submit" value="Delete Post">
 			</form>
 			<form method="post" action="/like">
-				<input type="hidden" name="like" value="{{post.get_ID()}}">
+				<input type="hidden" name="like" value="{{blog.get_ID()}}">
 				<input type="submit" value="Like Post">
 			</form>
-			{{post.likes}}
+			{{blog.likes}}
 			<form method="get" action="/comment">
-				<input type="hidden" name="comment" value="{{post.get_ID()}}">
+				<input type="hidden" name="comment" value="{{blog.get_ID()}}">
 				<input type="submit" value="Comment Post">
 			</form>
 		</header>
-		<pre>{{post.content}}</pre>
+		<pre>{{blog.content}}</pre>
 		<footer>
 		</footer>
 	</article>

@@ -27,41 +27,41 @@ jinja_env = jinja2.Environment(loader = jinja2.FileSystemLoader(template_dir),
                                 autoescape = True)
 
 class Handler(webapp2.RequestHandler):
-    def write(self, *a, **kw):
+    def write(self, *a, **kw): #Makes it easier to write to web browser
         self.response.out.write(*a, **kw)
 
-    def render_str(self, template, **kw):
+    def render_str(self, template, **kw): #Calls Jinjas template render function
         t = jinja_env.get_template(template)
         return t.render(**kw)
 
-    def render(self, template, **kw):
+    def render(self, template, **kw): #render template to web browser
         self.write(self.render_str(template, handler = self, **kw))
 
-    def make_cookie_for_page(self, entity):
-        newuser_id = entity.get_ID() #Get ID of new entity
-        pass_hash = entity.password.split("|")[0]
-        cookie_value = str('user-id=%s|%s' % (newuser_id, pass_hash))
+    def make_cookie_for_page(self, account_entity): #Make cookie based on who is logged in. Account entity
+        user_id = account_entity.get_ID() #Get ID of new entity
+        pass_hash = account_entity.password.split("|")[0]
+        cookie_value = str('user-id=%s|%s' % (user_id, pass_hash))
         self.response.headers.add_header('Set-Cookie', '%s; Path=/' % cookie_value)
 
     @staticmethod
-    def split_cookie(h): #Can this go in Handler class?
+    def split_cookie(h):
         user_cookie = h.split("|")
         return user_cookie
 
-    def valid_cookie(self): #check if DB ID matches with cookie hash password
-        if self.request.cookies.get("user-id"):
+    def valid_cookie(self): #check if cookie is valid with Accounts DB, userID and Hash Password
+        if self.request.cookies.get("user-id"): #If there is a cookie
             hash_pw = self.get_hash_from_cookie()        
-            cookie_account = self.get_account_from_cookie() #Add to Handler class?
-            if cookie_account:
-                return hash_pw == (cookie_account.password).split("|")[0]
+            cookie_account = self.get_account_from_cookie() #
+            if cookie_account: #If there is a cookie account from this hash
+                return hash_pw == (cookie_account.password).split("|")[0] #Return is hash from cookie and hash from Accounts DB match
             else:
                 return False
         else:
-            return False
+            return False #If there is no cookie, person is logged out. Redirect them to signin page
 
     def get_account_from_cookie(self):
-        account_id = self.get_accountID_from_cookie()
-        return Accounts.get_account_ent(account_id)
+        entity_id = self.get_accountID_from_cookie()
+        return Accounts.get_by_id(entity_id) #Use Accounts class function to get Accounts entity from ID
 
     def get_hash_from_cookie(self):
         userID_cookie = str(self.request.cookies.get("user-id"))
@@ -71,37 +71,32 @@ class Handler(webapp2.RequestHandler):
     def get_accountID_from_cookie(self):
         userID_cookie = str(self.request.cookies.get("user-id"))
         broken_cookie = self.split_cookie(userID_cookie)
-        account_id = int(broken_cookie[0])
-        return account_id
+        entity_id = int(broken_cookie[0])
+        return entity_id
 
 class Databases(db.Model):
 
-    def get_ID(self): #Make into super class for Accounts and Blog
+    def get_ID(self): #Returns ID for a DB class
         return self.key().id()
 
-    @classmethod
-    def get_account_ent(cls, account_id):
-        return cls.get_by_id(account_id)
-
 class Accounts(Databases):
-    #add helper function for splitting password property
-    def split_password(self):
+    def split_password(self):#add helper function for splitting password property
         return self.password.split("|")
 
     @staticmethod
-    def check_user_inuse(username):
-        q = db.GqlQuery("""SELECT * FROM Accounts WHERE user = '%s'""" % username)
+    def get_user_in_Accounts(user): #Can be used to check if a username is in use already
+        q = db.GqlQuery("""SELECT * FROM Accounts WHERE user = '%s'""" % user)
         return q.get() #Returns None if no matches are found (Username not in database)
 
     user = db.StringProperty(required = True)
     password = db.StringProperty(required = True)
-    #email = db.StringProperty()#Not currently adding email. Can't figure out how to make optional
-class Blog(Databases):
+    #email = db.StringProperty()#Not currently adding email. Can't figure out how to make optional with EmailProperty
 
+class Blog(Databases):
     subject = db.StringProperty(required = True)
     content = db.TextProperty(required = True)
     created = db.DateTimeProperty(auto_now_add = True)
-    creator = db.IntegerProperty(required = True)
+    creator = db.IntegerProperty(required = True) #Uses ID from cookie. Is an int
     likes = db.IntegerProperty(default = 0)
     comments = db.ListProperty(db.Key) #Figure how to extend this to comments of comments
 
@@ -116,24 +111,24 @@ class Comment(Databases):
 class BlogPage(Handler):
 
     def get(self, **kw): #Need to figure out how to render comments recursively. Otherwise keep running into same problem
-        if self.valid_cookie():
-            posts = db.GqlQuery("SELECT * FROM Blog ORDER BY created DESC")
-            for post in posts:
-                #Check the Comments to see if there are any comments with post as parent
+        if self.valid_cookie(): #Steve had something that would do this check automatically
+            blogs = db.GqlQuery("SELECT * FROM Blog ORDER BY created DESC")
+            for blog in blogs:
+                #Check the Comments to see if there are any comments with blog as parent
                 comments = Comment.all()# Comments will be not ordered this way
-                comments.ancestor(post)
+                comments.ancestor(blog)
                 if comments:
                     list_of_comments = []
                     for comment in comments:
                         list_of_comments.append(comment.key())
-                    post.comments = list_of_comments
-                    post.put()
+                    blog.comments = list_of_comments
+                    blog.put()
 
-            self.render("blog-page.html", posts=posts, **kw) #Dont want to have separate render for comments, I would have to check to make sure that comments match with posts. And I don't wanna
+            self.render("blog-page.html", blogs = blogs, **kw) #Dont want to have separate render for comments, I would have to check to make sure that comments match with blogs. And I don't wanna
         else:
             self.redirect('signin')
 
-class MainPage(Handler):
+class MainPage(Handler): #This is a little unnecessary, but a good redirection
     def get(self):
         self.redirect('/signin')
 
@@ -149,19 +144,19 @@ class SignUpPage(Handler):
 
         is_valid_user = valid_username(username)
         if password and verify:
-            if password == verify:
+            if password == verify: #Move to is_valid_password function?
                 is_valid_pass = valid_password(password)
+            else:
+                is_valid_pass = False
         else:
             is_valid_pass = False
         is_valid_email = valid_email(email)
 
         if is_valid_user and is_valid_pass and is_valid_email:
-            if Accounts.check_user_inuse(username):##Check if username is already in the database
+            if Accounts.get_user_in_Accounts(username):##Check if username is already in the database
                 error_user = "Username already in use"
                 self.render("user_signup_form.html", error_user = error_user)
-            else: #Add user to database
-
-            #Attempt to create new user
+            else: #Add user to Accounts database
                 #Salt and hash password for user
                 salt_hash_pw = make_pw_hash(username, password)
                 #Create new entity for user
@@ -186,42 +181,40 @@ class SignUpPage(Handler):
                                                 email = email)
 
 
-class NewPost(Handler):
+class NewBlogPostSubmitForm(Handler):
 
-    def get(self): #Need to fix. Add helper method strictly for rendering new form html
-        self.render("submit-form.html")
+    def get(self):
+        self.render("new-blog-post-submit-form.html")
 
     def post(self):
-
         if self.valid_cookie():
             subject = self.request.get("subject")
-            content = self.request.get("content") #May encounter error by interacting with Jinja content variable for form inheritenace. Be aware. Consider switching variable names. But it is likely that the block code gets run and the content within the block is plain/text and the function for moving the content block completes before the remaining code is parsed, thereby lmiting the scope of the content variable.
+            content = self.request.get("content")
             
-        
             if subject and content:
-                creator = self.get_accountID_from_cookie()
+                creator = self.get_accountID_from_cookie() #Creator value is stored as id of Account user. Should use key?
                 newpost = Blog(subject = subject, content = content, creator = creator) #Should ensure that Int is generated for ID
                 newpost.put()
                 post_num = str(newpost.key().id())
                 self.redirect("/" + post_num) # Need to have newpost redirect to Unique ID page for post
             else:
                 error = "we need both subject and content"
-                self.render("submit-form.html", error = error, subject = subject, content = content)
+                self.render("new-blog-post-submit-form.html", error = error, subject = subject, content = content)
         else:
             self.redirect("signin")
 
-class FormPage(Handler):
+class NewBlogPost(Handler):
     def get(self, post_id):
      #Should check to verify if Int
-        post = Blog.get_by_id(int(post_id))
-        if post:
-            self.render("new-post.html", post = post)
+        blog = Blog.get_by_id(int(post_id))
+        if blog:
+            self.render("new-blog-post.html", blog = blog)
         else:
-            self.write("That is not a post")
+            self.write("That is not a post") #Need to figure out better redirect. 
 
 class WelcomeHandler(Handler):
     def get(self): #Get cookie from user browser. Lookup information in databse and display name
-        if (self.valid_cookie()):
+        if self.valid_cookie():
             welcome_message = "Welcome %s" % (self.get_account_from_cookie().user)
             self.render("welcome_page.html", welcome_message = welcome_message)
         else:
@@ -234,21 +227,30 @@ class SignInHandler(Handler):
     def post(self): #User enters login information
         username = self.request.get("username")
         password = self.request.get("password")
-        is_valid_user = valid_username(username)
+        is_valid_user = valid_username(username) #There gotta be something better than these validators. I repeat myself
         is_valid_pass = valid_password(password)
 
         if is_valid_user and is_valid_pass:
-            username_entity = Accounts.check_user_inuse(username)
-            if username_entity:
-                hash_salt_password = username_entity.split_password()
+            username_entity = Accounts.get_user_in_Accounts(username)
+            if username_entity: #If account exists
+                hash_salt_password = username_entity.split_password() #Save as variable so can get the salt
                 if username_entity.password == make_pw_hash(username, password, hash_salt_password[1]):#Get the hash,salt and check provided username+password+salt against value of Accounts.password (hash,salt)
                     self.make_cookie_for_page(username_entity) #Make cookie
                     self.redirect('/welcome')
                 else:
-                    self.render("signin_page.html", error = "That's the incorrect password. Please try again")
+                    self.render("signin_page.html", error_pass = "That's the incorrect password. Please try again", username = username)
             else:
                 self.redirect('/signup') #Make error message. Render to page
-
+        else:
+            error_user=""
+            error_pass=""
+            if not is_valid_user:
+                error_user = "Username not valid"
+            if not is_valid_pass:
+                error_pass = "Password is not valid"
+            self.render("signin_page.html", error_user = error_user,
+                                                error_pass = error_pass,
+                                                username = username)
 class LogoutHandler(Handler): #deletes cookie and redirects user to signup page
 
     def get(self):
@@ -260,34 +262,34 @@ class DeleteHandler(Handler):
     def get(self):
         self.write("Go back to blog")
 
-    def post(self): #Get ID number of post from form and user ID or name
+    def post(self):
         if self.valid_cookie():
-            deleteID = int(self.request.get("delete"))
-            blog_entity = Blog.get_account_ent(deleteID)
+            blogID = int(self.request.get("delete")) #Account ID hidden in name="delete" input hidden element
+            blog_entity = Blog.get_by_id(blogID)
             blog_creator = blog_entity.creator
             cookie_ID = self.get_accountID_from_cookie()
             if blog_creator == cookie_ID:
-                blog_entity.delete()
+                blog_entity.delete() #Deleting a blog should delete all comments. Don't want memory leak
                 self.redirect("/blog")
             else:
-                error_msg = "You are not the owner of that blog"
+                error_msg = "You are not the owner of that blog" #Can't send error message with redirect. Use cookie? Don't really want to use more hidden values
                 self.redirect('/blog') #May need template reworked Need to send error message
         else:
             self.redirect("/signin")
 
 class LikeHandler(Handler):
     def get(self):
-        pass
+        self.write("No blog to like")
 
     def post(self): #Get ID number of post from form and user ID or name
         if self.valid_cookie():
-            blogID = int(self.request.get("like"))
-            blog_entity = Blog.get_account_ent(blogID)
+            blogID = int(self.request.get("like")) #Same is with DeleteHandler. Line 267
+            blog_entity = Blog.get_by_id(blogID)
             blog_creator = blog_entity.creator
             cookie_ID = self.get_accountID_from_cookie()
             if blog_creator != cookie_ID:
-                blog_entity.likes += 1
-                blog_entity.put() #Increase Like count
+                blog_entity.likes += 1 #Increase Like count
+                blog_entity.put() 
                 self.redirect("/blog")
             else:
                 error_msg = "You cannot like your own post"
@@ -304,7 +306,7 @@ class CommentHandler(Handler):
         content = self.request.get("comment")
         if content:
             blog_parent = int(self.request.get("parent"))
-            blog_parent = Blog.get_account_ent(blog_parent)
+            blog_parent = Blog.get_by_id(blog_parent)
             creator = self.get_accountID_from_cookie()
             newcomment = Comment(parent = blog_parent, content = content, creator = creator) #Should ensure that Int is generated for ID
             newcomment.put()
@@ -320,8 +322,8 @@ app = webapp2.WSGIApplication([
                             ('/signin', SignInHandler),
                             ('/logout', LogoutHandler),
                             ('/blog', BlogPage),
-                            ('/newpost', NewPost),
-                            ('/([0-9]+)', FormPage),
+                            ('/newpost', NewBlogPostSubmitForm),
+                            ('/([0-9]+)', NewBlogPost), #Parentheses send the value to the Handler
                             ('/delete', DeleteHandler),
                             ('/like', LikeHandler),
                             ('/comment', CommentHandler)
@@ -353,7 +355,7 @@ def create_salt(): #Put in Accounts class or some salting/hashing class
 def make_pw_hash(name, pw, salt=""):
     if not salt:
         salt = create_salt()
-    hashedpw = hashlib.sha256(name + pw + salt).hexdigest()
+    hashedpw = hashlib.sha256(name + pw + salt).hexdigest() #Should be using hmac with a secret word
     return "%s|%s" % (hashedpw, salt)
 
 def valid_pw(name, pw, h):
