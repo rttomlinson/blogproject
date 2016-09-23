@@ -3,31 +3,11 @@
 {% block content %}
 <section>
 	<h1>Your Post</h1>
-	<article>
-		<header class="blog-title">{{blog.subject}}
-			<form method="post" action="/delete">
-				<input type="hidden" name="delete" value="{{blog.get_ID()}}">
-				<input type="submit" value="Delete Post">
-			</form>
-			<form method="post" action="/like">
-				<input type="hidden" name="like" value="{{blog.get_ID()}}">
-				<input type="submit" value="Like Post">
-			</form>
-			{{blog.likes}}
-			<form method="get" action="/comment">
-				<input type="hidden" name="comment" value="{{blog.get_ID()}}">
-				<input type="submit" value="Comment Post">
-			</form>
-		</header>
-		<pre>{{blog.content}}</pre>
-		<footer>
-		</footer>
-	</article>
+		{% include 'single_blog_post.html' %}
 </section>
 <footer>
 </footer>
-{% endblock %}
+{% include 'logout_button.html' %}
 <a href="/blog">Go to main blog!</a>
-{% block logout %}
-<a href="/logout">Logout Here</a>
 {% endblock %}
+

@@ -1,0 +1,28 @@
+<article>
+	<header class="blog-title">{{blog.subject}}
+	{{error_msg}} <!--Need to have an identifier for the specific message-->
+	</header>
+	<pre>{{blog.content}}</pre>
+	<!--
+	{% if blog.comments %}
+	{% for comment in blog.comments %} comments is only keys right now
+		<h2>Comment</h2>
+			<pre>{{comment.content}}</pre> Not seeing comments because we only have keys
+	{% endfor %}
+	{% endif %} -->
+	<footer class="blog-actions">
+		<form method="post" action="/delete">
+			<input type="hidden" name="delete" value="{{blog.get_ID()}}">
+			<input type="submit" value="Delete Post">
+		</form>
+		<form method="post" action="/like">
+			<input type="hidden" name="like" value="{{blog.get_ID()}}">
+			<input type="submit" value="Like Post">
+		</form>
+			{{blog.likes}}
+		<form method="get" action="/comment"> <!--This needs to render the page first. Got it-->
+			<input type="hidden" name="parent" value="{{blog.get_ID()}}">
+			<input type="submit" value="Comment Post">
+		</form>
+	</footer>
+</article>

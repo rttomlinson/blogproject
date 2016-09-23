@@ -33,3 +33,8 @@ article {
 .blog-title {
 	background-color:#ddd;
 }
+
+footer.blog-actions {
+	background-color: #666;
+	display:flex;
+}

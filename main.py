@@ -288,7 +288,7 @@ class LikeHandler(Handler):
             blog_creator = blog_entity.creator
             cookie_ID = self.get_accountID_from_cookie()
             if blog_creator != cookie_ID:
-                blog_entity.likes += 1 #Increase Like count
+                blog_entity.likes += 1 #Increase Like count. Not exactly working
                 blog_entity.put() 
                 self.redirect("/blog")
             else:
