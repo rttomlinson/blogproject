@@ -60,9 +60,7 @@ class Handler(webapp2.RequestHandler):
             return False
 
     def get_account_from_cookie(self):
-        userID_cookie = str(self.request.cookies.get("user-id"))
-        broken_cookie = self.split_cookie(userID_cookie)
-        account_id = int(broken_cookie[0])
+        account_id = self.get_accountID_from_cookie()
         return Accounts.get_account_ent(account_id)
 
     def get_hash_from_cookie(self):
@@ -70,6 +68,11 @@ class Handler(webapp2.RequestHandler):
         broken_cookie = self.split_cookie(userID_cookie)
         return broken_cookie[1]
 
+    def get_accountID_from_cookie(self):
+        userID_cookie = str(self.request.cookies.get("user-id"))
+        broken_cookie = self.split_cookie(userID_cookie)
+        account_id = int(broken_cookie[0])
+        return account_id
 
 class Databases(db.Model):
 
@@ -98,13 +101,35 @@ class Blog(Databases):
     subject = db.StringProperty(required = True)
     content = db.TextProperty(required = True)
     created = db.DateTimeProperty(auto_now_add = True)
+    creator = db.IntegerProperty(required = True)
+    likes = db.IntegerProperty(default = 0)
+    comments = db.ListProperty(db.Key) #Figure how to extend this to comments of comments
+
+class Comment(Databases):
+
+    subject = db.StringProperty() #Needs default value or original post
+    content = db.TextProperty(required = True)
+    created = db.DateTimeProperty(auto_now_add = True)
+    creator = db.IntegerProperty(required = True)
+    likes = db.IntegerProperty(default = 0)
 
 class BlogPage(Handler):
 
-    def get(self, **kw):
+    def get(self, **kw): #Need to figure out how to render comments recursively. Otherwise keep running into same problem
         if self.valid_cookie():
             posts = db.GqlQuery("SELECT * FROM Blog ORDER BY created DESC")
-            self.render("blog-page.html", posts=posts, **kw)
+            for post in posts:
+                #Check the Comments to see if there are any comments with post as parent
+                comments = Comment.all()# Comments will be not ordered this way
+                comments.ancestor(post)
+                if comments:
+                    list_of_comments = []
+                    for comment in comments:
+                        list_of_comments.append(comment.key())
+                    post.comments = list_of_comments
+                    post.put()
+
+            self.render("blog-page.html", posts=posts, **kw) #Dont want to have separate render for comments, I would have to check to make sure that comments match with posts. And I don't wanna
         else:
             self.redirect('signin')
 
@@ -167,18 +192,23 @@ class NewPost(Handler):
         self.render("submit-form.html")
 
     def post(self):
-        subject = self.request.get("subject")
-        content = self.request.get("content") #May encounter error by interacting with Jinja content variable for form inheritenace. Be aware. Consider switching variable names. But it is likely that the block code gets run and the content within the block is plain/text and the function for moving the content block completes before the remaining code is parsed, thereby lmiting the scope of the content variable.
+
+        if self.valid_cookie():
+            subject = self.request.get("subject")
+            content = self.request.get("content") #May encounter error by interacting with Jinja content variable for form inheritenace. Be aware. Consider switching variable names. But it is likely that the block code gets run and the content within the block is plain/text and the function for moving the content block completes before the remaining code is parsed, thereby lmiting the scope of the content variable.
+            
         
-        
-        if subject and content:
-            newpost = Blog(subject = subject, content = content) #Should ensure that Int is generated for ID
-            newpost.put()
-            post_num = str(newpost.key().id())
-            self.redirect("/" + post_num) # Need to have newpost redirect to Unique ID page for post
+            if subject and content:
+                creator = self.get_accountID_from_cookie()
+                newpost = Blog(subject = subject, content = content, creator = creator) #Should ensure that Int is generated for ID
+                newpost.put()
+                post_num = str(newpost.key().id())
+                self.redirect("/" + post_num) # Need to have newpost redirect to Unique ID page for post
+            else:
+                error = "we need both subject and content"
+                self.render("submit-form.html", error = error, subject = subject, content = content)
         else:
-            error = "we need both subject and content"
-            self.render("submit-form.html", error = error, subject = subject, content = content)
+            self.redirect("signin")
 
 class FormPage(Handler):
     def get(self, post_id):
@@ -231,10 +261,57 @@ class DeleteHandler(Handler):
         self.write("Go back to blog")
 
     def post(self): #Get ID number of post from form and user ID or name
-        deleteID = int(self.request.get("delete"))
-        account_entity = Blog.get_account_ent(deleteID)
-        account_entity.delete()
-        self.redirect("/blog")
+        if self.valid_cookie():
+            deleteID = int(self.request.get("delete"))
+            blog_entity = Blog.get_account_ent(deleteID)
+            blog_creator = blog_entity.creator
+            cookie_ID = self.get_accountID_from_cookie()
+            if blog_creator == cookie_ID:
+                blog_entity.delete()
+                self.redirect("/blog")
+            else:
+                error_msg = "You are not the owner of that blog"
+                self.redirect('/blog') #May need template reworked Need to send error message
+        else:
+            self.redirect("/signin")
+
+class LikeHandler(Handler):
+    def get(self):
+        pass
+
+    def post(self): #Get ID number of post from form and user ID or name
+        if self.valid_cookie():
+            blogID = int(self.request.get("like"))
+            blog_entity = Blog.get_account_ent(blogID)
+            blog_creator = blog_entity.creator
+            cookie_ID = self.get_accountID_from_cookie()
+            if blog_creator != cookie_ID:
+                blog_entity.likes += 1
+                blog_entity.put() #Increase Like count
+                self.redirect("/blog")
+            else:
+                error_msg = "You cannot like your own post"
+                self.redirect('/blog') #May need template reworked Need to send error message
+        else:
+            self.redirect("/signin")
+
+class CommentHandler(Handler):
+    def get(self):
+        blog_parent = int(self.request.get("parent"))
+        self.render("comment-form.html", blog_parent = blog_parent)
+
+    def post(self):#Need to add entity
+        content = self.request.get("comment")
+        if content:
+            blog_parent = int(self.request.get("parent"))
+            blog_parent = Blog.get_account_ent(blog_parent)
+            creator = self.get_accountID_from_cookie()
+            newcomment = Comment(parent = blog_parent, content = content, creator = creator) #Should ensure that Int is generated for ID
+            newcomment.put()
+            self.redirect('/blog')
+        else:
+            self.render("comment-form.html", error = "You need a comment")
+
 
 app = webapp2.WSGIApplication([
                             ('/', MainPage),
@@ -245,7 +322,9 @@ app = webapp2.WSGIApplication([
                             ('/blog', BlogPage),
                             ('/newpost', NewPost),
                             ('/([0-9]+)', FormPage),
-                            ('/delete', DeleteHandler)
+                            ('/delete', DeleteHandler),
+                            ('/like', LikeHandler),
+                            ('/comment', CommentHandler)
                             ],
                             debug=True)
 

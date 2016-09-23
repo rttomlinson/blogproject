@@ -6,12 +6,28 @@
 	{% for post in posts %}
 	<article>
 		<header class="blog-title">{{post.subject}}
+		{{error_msg}} <!--Need to have an identifier for the specific message-->
 			<form method="post" action="/delete">
 				<input type="hidden" name="delete" value="{{post.get_ID()}}">
 				<input type="submit" value="Delete Post">
 			</form>
+			<form method="post" action="/like">
+				<input type="hidden" name="like" value="{{post.get_ID()}}">
+				<input type="submit" value="Like Post">
+			</form>
+			{{post.likes}}
+			<form method="get" action="/comment"> <!--This needs to render the page first. Got it-->
+				<input type="hidden" name="parent" value="{{post.get_ID()}}">
+				<input type="submit" value="Comment Post">
+			</form>
 		</header>
 		<pre>{{post.content}}</pre>
+		{% if post.comments %}
+		{% for comment in post.comments %}
+			<h2>Comment</h2>
+				<pre>{{comment.content}}</pre> <!--Not seeing comments because we only have keys-->
+		{% endfor %}
+		{% endif %}
 		<footer>
 		</footer>
 	</article>

@@ -1,0 +1,19 @@
+{% extends "container_page.html" %}
+Comment on Blog Post
+{% block content %}
+{{error}}
+<form method="post" action="/comment">
+	<header>Subject
+	</header>
+
+	<hr>
+	<input type="hidden" name="parent" value="{{blog_parent}}">
+	<label>Comment
+		<textarea name="comment"></textarea>
+	</label>
+	<input type="submit">
+</form>
+{% endblock %}
+{% block logout %}
+<a href="/logout">Logout Here</a>
+{% endblock %}

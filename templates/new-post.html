@@ -9,6 +9,15 @@
 				<input type="hidden" name="delete" value="{{post.get_ID()}}">
 				<input type="submit" value="Delete Post">
 			</form>
+			<form method="post" action="/like">
+				<input type="hidden" name="like" value="{{post.get_ID()}}">
+				<input type="submit" value="Like Post">
+			</form>
+			{{post.likes}}
+			<form method="get" action="/comment">
+				<input type="hidden" name="comment" value="{{post.get_ID()}}">
+				<input type="submit" value="Comment Post">
+			</form>
 		</header>
 		<pre>{{post.content}}</pre>
 		<footer>
