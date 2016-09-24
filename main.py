@@ -92,38 +92,49 @@ class Accounts(Databases):
     password = db.StringProperty(required = True)
     #email = db.StringProperty()#Not currently adding email. Can't figure out how to make optional with EmailProperty
 
-class Blog(Databases):
-    subject = db.StringProperty(required = True)
-    content = db.TextProperty(required = True)
-    created = db.DateTimeProperty(auto_now_add = True)
-    creator = db.IntegerProperty(required = True) #Uses ID from cookie. Is an int
+class UserPosts(Databases):
+    @staticmethod
+    def add_all_comments(parent_cursor):
+        for parent in parent_cursor:
+            comments = Comment.all() #Where does the .all() function work?
+            comments = comments.ancestor(parent)
+                #There are comments in blog
+    #Check the Comments to see if there are any comments with blog as parent
+                # Comments will be not ordered this way
+            list_of_comments = []
+            for comment in comments:
+                current_entity_key = comment.key()
+                list_of_comments.append(current_entity_key)
+            parent.comments = list_of_comments
+            parent.put()
+            #UserPosts.add_all_comments(comments)
+
+    comments = db.ListProperty(db.Key)
     likes = db.IntegerProperty(default = 0)
-    comments = db.ListProperty(db.Key) #Figure how to extend this to comments of comments
-
-class Comment(Databases):
-
-    subject = db.StringProperty() #Needs default value or original post
+ #Needs default value or original post
     content = db.TextProperty(required = True)
     created = db.DateTimeProperty(auto_now_add = True)
     creator = db.IntegerProperty(required = True)
-    likes = db.IntegerProperty(default = 0)
+
+
+class Blog(UserPosts):
+
+    subject = db.StringProperty(required = True)
+
+ #Figure how to extend this to comments of comments
+
+class Comment(UserPosts):
+    subject = db.StringProperty()
+
 
 class BlogPage(Handler):
 
     def get(self, **kw): #Need to figure out how to render comments recursively. Otherwise keep running into same problem
         if self.valid_cookie(): #Steve had something that would do this check automatically
             blogs = db.GqlQuery("SELECT * FROM Blog ORDER BY created DESC")
-            for blog in blogs:
-                #Check the Comments to see if there are any comments with blog as parent
-                comments = Comment.all()# Comments will be not ordered this way
-                comments.ancestor(blog)
-                if comments:
-                    list_of_comments = []
-                    for comment in comments:
-                        list_of_comments.append(comment.key())
-                    blog.comments = list_of_comments
-                    blog.put()
-
+            #Helper function for adding all comments
+            UserPosts.add_all_comments(blogs)#Is this right?
+            #Comments will be not ordered this way
             self.render("blog-page.html", blogs = blogs, **kw) #Dont want to have separate render for comments, I would have to check to make sure that comments match with blogs. And I don't wanna
         else:
             self.redirect('signin')
@@ -299,7 +310,7 @@ class LikeHandler(Handler):
 
 class CommentHandler(Handler):
     def get(self):
-        blog_parent = int(self.request.get("parent"))
+        blog_parent = int(self.request.get("parent")) #Same is with DeleteHandler. Line 267. How to send information across? Cookie?
         self.render("comment-form.html", blog_parent = blog_parent)
 
     def post(self):#Need to add entity
@@ -307,7 +318,7 @@ class CommentHandler(Handler):
         if content:
             blog_parent = int(self.request.get("parent"))
             blog_parent = Blog.get_by_id(blog_parent)
-            creator = self.get_accountID_from_cookie()
+            creator = self.get_accountID_from_cookie() #Is separate Comments type appropriate?
             newcomment = Comment(parent = blog_parent, content = content, creator = creator) #Should ensure that Int is generated for ID
             newcomment.put()
             self.redirect('/blog')

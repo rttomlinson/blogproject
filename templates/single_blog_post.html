@@ -3,13 +3,6 @@
 	{{error_msg}} <!--Need to have an identifier for the specific message-->
 	</header>
 	<pre>{{blog.content}}</pre>
-	<!--
-	{% if blog.comments %}
-	{% for comment in blog.comments %} comments is only keys right now
-		<h2>Comment</h2>
-			<pre>{{comment.content}}</pre> Not seeing comments because we only have keys
-	{% endfor %}
-	{% endif %} -->
 	<footer class="blog-actions">
 		<form method="post" action="/delete">
 			<input type="hidden" name="delete" value="{{blog.get_ID()}}">
