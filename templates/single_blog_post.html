@@ -20,7 +20,7 @@
 	</footer>
 	{% if blog.comments %}
 		{% for comment in blog.comments %}
-			{% set blog = Comment.get(comment) %}
+			{% set blog = comment %}
 			{% include "single_blog_post.html" %}
 		{% endfor %}
 	{% endif %}

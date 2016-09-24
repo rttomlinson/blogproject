@@ -103,13 +103,13 @@ class UserPosts(Databases):
                 # Comments will be not ordered this way
             list_of_comments = []
             for comment in comments:
-                current_entity_key = comment.key()
-                list_of_comments.append(current_entity_key)
+                current_entity_content = comment.content
+                list_of_comments.append(current_entity_content)
             parent.comments = list_of_comments
             parent.put()
             #UserPosts.add_all_comments(comments)
 
-    comments = db.ListProperty(db.Key)
+    comments = db.ListProperty(db.Text)
     likes = db.IntegerProperty(default = 0)
  #Needs default value or original post
     content = db.TextProperty(required = True)
