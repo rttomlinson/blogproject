@@ -317,7 +317,7 @@ class CommentHandler(Handler):
         content = self.request.get("comment")
         if content:
             blog_parent = int(self.request.get("parent"))
-            blog_parent = Blog.get_by_id(blog_parent)
+            blog_parent = Blog.get_by_id(blog_parent) or Comment.get_by_id(blog_parent)#Is it okay to use Parent class? Does it need to be Comment or Blog?
             creator = self.get_accountID_from_cookie() #Is separate Comments type appropriate?
             newcomment = Comment(parent = blog_parent, content = content, creator = creator) #Should ensure that Int is generated for ID
             newcomment.put()

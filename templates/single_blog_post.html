@@ -18,4 +18,10 @@
 			<input type="submit" value="Comment Post">
 		</form>
 	</footer>
+	{% if blog.comments %}
+		{% for comment in blog.comments %}
+			{% set blog = Comment.get(comment) %}
+			{% include "single_blog_post.html" %}
+		{% endfor %}
+	{% endif %}
 </article>
