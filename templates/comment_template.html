@@ -1,0 +1,16 @@
+<article>
+	<header class="blog-title">Comment
+	{{error_msg}} <!--Need to have an identifier for the specific message-->
+	</header>
+	<pre>{{comment.content}}</pre>
+	<footer class="blog-actions">
+		<form method="post" action="/delete">
+			<input type="hidden" name="delete" value="{{comment.key()}}">
+			<input type="submit" value="Delete Post">
+		</form>
+		<form method="post" action="/like">
+			<input type="hidden" name="like" value="{{comment.get_ID()}}">
+			<input type="submit" value="Like Post">
+		</form>
+	</footer>
+</article>

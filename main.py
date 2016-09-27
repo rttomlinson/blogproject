@@ -93,23 +93,16 @@ class Accounts(Databases):
     #email = db.StringProperty()#Not currently adding email. Can't figure out how to make optional with EmailProperty
 
 class UserPosts(Databases):
-    @staticmethod
-    def add_all_comments(parent_cursor):
-        for parent in parent_cursor:
-            comments = Comment.all() #Where does the .all() function work?
-            comments = comments.ancestor(parent)
-                #There are comments in blog
-    #Check the Comments to see if there are any comments with blog as parent
-                # Comments will be not ordered this way
-            list_of_comments = []
-            for comment in comments:
-                current_entity_content = comment.content
-                list_of_comments.append(current_entity_content)
-            parent.comments = list_of_comments
-            parent.put()
-            #UserPosts.add_all_comments(comments)
 
-    comments = db.ListProperty(db.Text)
+    def add_all_comments(self):
+        print "calling add_all_comments RIGHT HEHERHEHREH"
+        comments = Comment.all()
+        comments = comments.ancestor(self)
+        print comments.get()
+        if comments.get():
+            return comments
+        return None
+
     likes = db.IntegerProperty(default = 0)
  #Needs default value or original post
     content = db.TextProperty(required = True)
@@ -133,7 +126,6 @@ class BlogPage(Handler):
         if self.valid_cookie(): #Steve had something that would do this check automatically
             blogs = db.GqlQuery("SELECT * FROM Blog ORDER BY created DESC")
             #Helper function for adding all comments
-            UserPosts.add_all_comments(blogs)#Is this right?
             #Comments will be not ordered this way
             self.render("blog-page.html", blogs = blogs, **kw) #Dont want to have separate render for comments, I would have to check to make sure that comments match with blogs. And I don't wanna
         else:
@@ -275,8 +267,8 @@ class DeleteHandler(Handler):
 
     def post(self):
         if self.valid_cookie():
-            blogID = int(self.request.get("delete")) #Account ID hidden in name="delete" input hidden element
-            blog_entity = Blog.get_by_id(blogID)
+            blogKey = self.request.get("delete") #Account ID hidden in name="delete" input hidden element
+            blog_entity = db.get(blogKey)
             blog_creator = blog_entity.creator
             cookie_ID = self.get_accountID_from_cookie()
             if blog_creator == cookie_ID:
@@ -317,7 +309,7 @@ class CommentHandler(Handler):
         content = self.request.get("comment")
         if content:
             blog_parent = int(self.request.get("parent"))
-            blog_parent = Blog.get_by_id(blog_parent) or Comment.get_by_id(blog_parent)#Is it okay to use Parent class? Does it need to be Comment or Blog?
+            blog_parent = Blog.get_by_id(blog_parent)#Is it okay to use Parent class? Does it need to be Comment or Blog?
             creator = self.get_accountID_from_cookie() #Is separate Comments type appropriate?
             newcomment = Comment(parent = blog_parent, content = content, creator = creator) #Should ensure that Int is generated for ID
             newcomment.put()

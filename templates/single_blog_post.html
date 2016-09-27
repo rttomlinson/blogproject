@@ -5,7 +5,7 @@
 	<pre>{{blog.content}}</pre>
 	<footer class="blog-actions">
 		<form method="post" action="/delete">
-			<input type="hidden" name="delete" value="{{blog.get_ID()}}">
+			<input type="hidden" name="delete" value="{{blog.key()}}">
 			<input type="submit" value="Delete Post">
 		</form>
 		<form method="post" action="/like">
@@ -18,10 +18,10 @@
 			<input type="submit" value="Comment Post">
 		</form>
 	</footer>
-	{% if blog.comments %}
-		{% for comment in blog.comments %}
-			{% set blog = comment %}
-			{% include "single_blog_post.html" %}
-		{% endfor %}
-	{% endif %}
+{% set comments = blog.add_all_comments() %}
+{% if comments %}
+	{% for comment in comments %}
+		{% include "comment_template.html" %}
+	{% endfor %}
+{% endif %}
 </article>
